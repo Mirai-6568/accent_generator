@@ -1,30 +1,13 @@
 # accent generator
-##### Setup
-1. Create venv by python 3.7
-2. Activate venv
-3. Execute *pip install -r requirements.txt*
-4. Create a file with the name *venv/lib/python3.7/site-packages/import.pth*. 
-   And enter the following in it.
-   ```
-   {this project path}/epsnet
-   {this project path}/ParallelWaveGAN
-   ``` 
-   
-   example
-   ```
-   /Users/**/PycharmProjects/text2speech-minimum-toolkit/epsnet
-   /Users/**/PycharmProjects/text2speech-minimum-toolkit/ParallelWaveGAN
-   ``` 
-5. Download model_config_file from *https://drive.google.com/drive/folders/1pUm95esEgQGh5HjeLzxpFrZIre7Kqwwd?usp=sharing*.
-   And put them into model_config
+### Setup
+1. Follow accent_generator/text2speech/README.md
+2. Setup crepe
+    ```
+    $ pip install --upgrade tensorflow  # if you don't already have tensorflow >= 2.0.0
+    $ pip install crepe
+    ```
 
-6. Setup crepe
-```
-$ pip install --upgrade tensorflow  # if you don't already have tensorflow >= 2.0.0
-$ pip install crepe
-```
-
-#### How to move
+### How to move
 Set the taget wavfile and its duration in the target directory, and write its phonemes inside main.py. 
 It also requires the path to the wavfile and durationfile inside main.py.
 ```
