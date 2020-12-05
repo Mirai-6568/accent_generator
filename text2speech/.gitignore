@@ -1,0 +1,13 @@
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+
+venv/
+
+out_dir/*
+!.gitkeep
+
+/model_config/mel2speech/*
+!.gitkeep
+
+/model_config/text2mel/*
+!.gitkeep
