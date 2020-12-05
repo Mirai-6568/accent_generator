@@ -12,8 +12,8 @@ Set the taget wavfile and its duration in the target directory, and write its ph
 It also requires the path to the wavfile and durationfile inside main.py.
 ```
 #example
-target/sample.wav
-target/duration
+accent_generator/target/sample.wav
+accent_generator/target/duration
 #example of the durationfile: 4 14 11 2 9 5 7 4 9 6 7 7 0 6 9 5 6 3 12 24 6 7 4 5 5 4 5 4 3 7 5 7 7 8 7 8 4 7 5 5 7 3 3 3 6 4 4 5 3 5 7 2 9 3 4 7 4 4 7 7 3 0 8
 ```
 ```
@@ -26,10 +26,10 @@ duration = "./target/duration"
 Execute`python main.py`
 
 ### アルゴリズムの説明
-1. まずdurationをもとに音素ごとのF0平均をとる
+1. まずdurationをもとに目標データの音素ごとのF0平均をとる
 2. F0が極大値となっている音素(つまり直前と直後よりもF0が高い音素)にアクセント核"1"をつける。ただしアクセント核が近い位置に来ることはないので"1 0 1"や"1 0 0 1"となった場合は最初のアクセント核を消す("0 0 1","0 0 0 1"にする)
 3. こうしてできたaccentの一つ一つのアクセント核について、前後二つずつを含めた計5つの音素で32通りのアクセントを試し("0 0 0 0 0","0 0 0 0 1",...,"0 1 1 0 1","0 1 1 1 0",...,"1 1 1 1 1")、最も目標データとのF0の距離が小さかったものを選択しaccentを更新
 4. これを数回繰り返す(デフォルトでは1回)
 
 ※ 3での距離の計算方法
-0.01秒ごとのF0の二乗誤差をとり、平均する
+->0.01秒ごとのF0の二乗誤差をとり、平均する
