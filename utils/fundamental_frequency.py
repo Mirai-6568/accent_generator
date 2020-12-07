@@ -7,25 +7,33 @@ import torch
 import crepe
 from scipy.io import wavfile
 
-from text2speech.utils.text2speech import text2speech_with_accent
-
 class FeatureExtractor():
+    def __init__(self, wav, phoneme, accent, duration, text2speech, dumpdir = './dump'):
+        self.wav = wav
+        self.phoneme = phoneme
+        self.accent = accent
+        self.duration = duration
+        self.dumpdir = dumpdir
+        self.text2speech = text2speech
+
+        os.makedirs('./dump', exist_ok=True)
+
     def get_frequency(self, wav):
         sr, audio = wavfile.read(wav)
         _, frequency, _, _ = crepe.predict(audio, sr, viterbi=True)
         return frequency
 
-    def get_realtime_duration(self, duration):
-        with open(duration) as f:
+    def get_realtime_duration(self):
+        with open(self.duration) as f:
             durations_list = f.read().split()
         realtime_duration = [0]
         for i in range(len(durations_list)):
             realtime_duration.append(int(durations_list[i]) * 100 // (24000 // 300))
         return realtime_duration
 
-    def get_frequency_means(self, wav, duration):
-        frequency = self.get_frequency(wav)
-        realtime_duration = self.get_realtime_duration(duration)
+    def get_frequency_means(self):
+        frequency = self.get_frequency(self.wav)
+        realtime_duration = self.get_realtime_duration()
 
         frequency_means = []
         sum_duration = 0
@@ -43,18 +51,19 @@ class FeatureExtractor():
 
         return frequency_means
 
-    def create_wav_and_get_frequency(self, phoneme, accent, file_name='./dump/temp.wav'):
+    def create_wav_and_get_frequency(self, accent):
+        wavfile_path = os.path.join(self.dumpdir, 'temp.wav')
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        phoneme = torch.tensor(phoneme, dtype=torch.long, device=device)
+        phoneme = torch.tensor(self.phoneme, dtype=torch.long, device=device)
         accent = torch.tensor(accent, dtype=torch.long, device=device)
-        text2speech_with_accent(file_name, phoneme, accent)
+        self.text2speech(wavfile_path, phoneme, accent)
 
-        frequency = self.get_frequency(file_name)
+        frequency = self.get_frequency(wavfile_path)
         return frequency
 
-    def check_frequency_loss(self, phoneme, wav, new_accent):
-        accent_frequency = self.get_frequency(wav)
-        new_accent_frequency = self.create_wav_and_get_frequency(phoneme, new_accent)
+    def check_frequency_loss(self, new_accent):
+        accent_frequency = self.get_frequency(self.wav)
+        new_accent_frequency = self.create_wav_and_get_frequency(new_accent)
         length = min(len(accent_frequency), len(new_accent_frequency))
 
         loss = 0
@@ -63,69 +72,42 @@ class FeatureExtractor():
         loss = loss / length
         return loss
 
-#    def check_updown_loss(self, phoneme, accent, new_accent):
-
-    def __call__(self, wav, duration):
-        return self.get_frequency_means(wav, duration)
+    def save_accent(self, accent, number):
+        with open(os.path.join(self.dumpdir, 'data' + str(number) + '.pkl'), 'wb') as web:
+            pickle.dump(accent, web)
 
 
 class FeatureComparator():
-    def create_new_accent(self, accent, i, j):
-        n = list(str(bin(j)).replace('0b', '').zfill(5)) #example: 1 → [0,0,0,0,1], 6 → [0,0,1,1,0], 25 → [1,1,0,0,1]
+    def __init__(self, wav, phoneme, accent, accent_place, duration, text2speech):
+        self.wav = wav
+        self.phoneme = phoneme
+        self.accent = accent
+        self.accent_place = accent_place
+        self.feature_extractor = FeatureExtractor(wav, phoneme, accent, duration, text2speech)
+
+    def create_new_accent(self, position, number):
+        accent = self.accent
+        n = list(str(bin(number)).replace('0b', '').zfill(5)) #example: 1 → [0,0,0,0,1], 6 → [0,0,1,1,0], 25 → [1,1,0,0,1]
         for k in range(5):
-            if n[k] == '0' and 0 <= (i - 2 + k) < len(accent):
-                accent[i - 2 + k] = 0
-            if n[k] == '1' and 0 <= (i - 2 + k) < len(accent):
-                accent[i - 2 + k] = 1
+            if n[k] == '0' and 0 <= (position - 2 + k) < len(accent):
+                accent[position - 2 + k] = 0
+            if n[k] == '1' and 0 <= (position - 2 + k) < len(accent):
+                accent[position - 2 + k] = 1
         return accent
 
-    def save_accent(self, accent, i):
-        with open('./dump/data' + str(i) + '.pkl', 'wb') as web:
-            pickle.dump(accent, web)
-
-    def __call__(self, wav, phoneme, accent, accent_place):
-        feature_extractor = FeatureExtractor()
-        revised_accent = accent
-        for i in accent_place:
+    def __call__(self):
+        revised_accent = self.accent
+        for position in self.accent_place:
             score = []
-            for j in range(32):
-                new_accent = self.create_new_accent(accent, i, j)
-                loss = feature_extractor.check_frequency_loss(phoneme, wav, new_accent)
+            for number in range(32):
+                new_accent = self.create_new_accent(position, number)
+                loss = self.feature_extractor.check_frequency_loss(new_accent)
                 score.append(loss)
             best_accent_number = score.index(min(score))
 
-            revised_accent = self.create_new_accent(revised_accent, i, best_accent_number)
-            self.save_accent(revised_accent, i)
+            revised_accent = self.create_new_accent(position, best_accent_number)
+            self.feature_extractor.save_accent(revised_accent, position)
 
         return revised_accent
 
-
-class FeatureComparator2():
-    def create_new_accent(self, accent, i, j):
-        n = list(str(bin(j)).replace('0b', '').zfill(5)) #example: 1 → [0,0,0,0,1], 6 → [0,0,1,1,0], 25 → [1,1,0,0,1]
-        for k in range(5):
-            if n[k] == '0' and 0 <= (i - 2 + k) < len(accent):
-                accent[i - 2 + k] = 0
-            if n[k] == '1' and 0 <= (i - 2 + k) < len(accent):
-                accent[i - 2 + k] = 1
-        return accent
-
-    def save_accent(self, accent, i):
-        with open('./dump/log' + str(i) + '.pkl', 'wb') as web:
-            pickle.dump(accent, web)
-
-    def __call__(self, phoneme, accent, accent_place):
-        feature_extractor = FeatureExtractor()
-        revised_accent = accent
-        for i in accent_place:
-            score = []
-            for j in range(32):
-                new_accent = self.create_new_accent(accent, i, j)
-                loss = feature_extractor.check_frequency_loss(phoneme, accent, new_accent)
-                score.append(loss)
-            best_accent_number = score.index(min(score))
-
-            revised_accent = self.create_new_accent(revised_accent, i, best_accent_number)
-            self.save_accent(revised_accent, i)
-
-        return revised_accent
+#    def check_updown_loss(self, phoneme, accent, new_accent):
